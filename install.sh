@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-REPO="https://raw.githubusercontent.com/en9inerd/zmx-scripts/main"
+REPO="https://raw.githubusercontent.com/en9inerd/zmx-scripts/master"
 BIN_DIR="${HOME}/.local/bin"
 ZMX_SESS_CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-sessionizer"
 ZMX_WS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-workspace"

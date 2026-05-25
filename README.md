@@ -12,7 +12,7 @@ fzf-driven session picker and project workspace manager for [zmx](https://github
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/en9inerd/zmx-scripts/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/en9inerd/zmx-scripts/master/install.sh | bash
 ```
 
 Downloads scripts to `~/.local/bin/` and copies example config.
