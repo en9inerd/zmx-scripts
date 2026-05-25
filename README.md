@@ -24,7 +24,6 @@ Add to `~/.config/ghostty/config`:
 ```ini
 command = ~/.local/bin/zmx-sessionizer
 
-keybind = ctrl+b>f=new_tab
 keybind = ctrl+b>w=text:zmx-workspace attach\n
 keybind = ctrl+b>x=text:zmx kill $ZMX_SESSION\n
 keybind = ctrl+b>shift+x=text:zws kill-session\n
