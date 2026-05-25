@@ -1,1 +1,3 @@
-TS_SEARCH_PATHS=(~/Development)
+# ZMX_SEARCH_PATHS=(~/Development)  # default
+# ZMX_SEARCH_PATHS=(~/Development ~/Work:2)
+# ZMX_MAX_DEPTH=1

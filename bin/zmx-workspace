@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-WORKSPACE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-workspace"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-sessionizer"
+CONFIG_FILE="$CONFIG_DIR/zmx-sessionizer.conf"
+WORKSPACE_DIR="$CONFIG_DIR/workspaces"
 mkdir -p "$WORKSPACE_DIR"
+
+[[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
+[[ -n "$ZMX_SEARCH_PATHS" ]] || ZMX_SEARCH_PATHS=(~/Development)
 
 _fzf() {
     fzf --height=50% --border=rounded "$@"
@@ -45,19 +50,12 @@ cmd_new() {
     local dir
     printf "directory (empty for fzf picker) [%s]: " "$PWD"; read -r dir
     if [[ -z "$dir" ]]; then
-        local sess_conf="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-sessionizer/zmx-sessionizer.conf"
-        local search_paths=(~/Development)
-        if [[ -f "$sess_conf" ]]; then
-            source "$sess_conf"
-            search_paths=("${TS_SEARCH_PATHS[@]}")
-            [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]] && search_paths+=("${TS_EXTRA_SEARCH_PATHS[@]}")
-        fi
         dir=$(
-            for p in "${search_paths[@]}"; do
+            for p in "${ZMX_SEARCH_PATHS[@]}"; do
                 if [[ "$p" =~ ^([^:]+):([0-9]+)$ ]]; then
                     fd --type d --max-depth "${BASH_REMATCH[2]}" . "${BASH_REMATCH[1]}" 2>/dev/null
                 else
-                    fd --type d --max-depth "${TS_MAX_DEPTH:-1}" . "$p" 2>/dev/null
+                    fd --type d --max-depth "${ZMX_MAX_DEPTH:-1}" . "$p" 2>/dev/null
                 fi
             done | _fzf --prompt="project dir> "
         )

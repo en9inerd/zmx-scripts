@@ -4,8 +4,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-sessionizer"
 CONFIG_FILE="$CONFIG_DIR/zmx-sessionizer.conf"
 
 [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
-[[ -n "$TS_SEARCH_PATHS" ]] || TS_SEARCH_PATHS=(~/Development)
-[[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]] && TS_SEARCH_PATHS+=("${TS_EXTRA_SEARCH_PATHS[@]}")
+[[ -n "$ZMX_SEARCH_PATHS" ]] || ZMX_SEARCH_PATHS=(~/Development)
 
 _list_sessions() {
     zmx list 2>/dev/null | while IFS=$'\t' read -r name pid clients _created dir _rest; do
@@ -21,11 +20,11 @@ _list_sessions() {
 
 _list_dirs() {
     local path depth
-    for entry in "${TS_SEARCH_PATHS[@]}"; do
+    for entry in "${ZMX_SEARCH_PATHS[@]}"; do
         if [[ "$entry" =~ ^([^:]+):([0-9]+)$ ]]; then
             path="${BASH_REMATCH[1]}"; depth="${BASH_REMATCH[2]}"
         else
-            path="$entry"; depth="${TS_MAX_DEPTH:-1}"
+            path="$entry"; depth="${ZMX_MAX_DEPTH:-1}"
         fi
         [[ -d "$path" ]] && fd --type d --max-depth "$depth" . "$path"
     done
