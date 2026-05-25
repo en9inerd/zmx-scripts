@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+WORKSPACE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-workspace"
+mkdir -p "$WORKSPACE_DIR"
+
+_fzf() {
+    fzf --height=50% --border=rounded "$@"
+}
+
+_zmx_sessions() {
+    zmx list 2>/dev/null | while IFS=$'\t' read -r name _pid _clients _created _dir _rest; do
+        [[ "$_rest" == *"ended="* ]] && continue
+        name=${name#"${name%%[a-zA-Z_]*}"}
+        echo "${name#name=}"
+    done
+}
+
+_list_projects() {
+    for f in "$WORKSPACE_DIR"/*.conf; do
+        [[ -f "$f" ]] && basename "$f" .conf
+    done
+}
+
+_load_project() {
+    local conf="$WORKSPACE_DIR/$1.conf"
+    [[ ! -f "$conf" ]] && { echo "project '$1' not found. run: zmx-workspace new"; return 1; }
+    unset ZMX_DIR ZMX_SESSIONS
+    source "$conf"
+}
+
+_pick_project() {
+    local prompt="${1:-project> }"
+    local count
+    count=$(_list_projects | wc -l | tr -d ' ')
+    [[ "$count" -eq 0 ]] && { echo "no projects. run: zmx-workspace new" >&2; return 1; }
+    [[ "$count" -eq 1 ]] && { _list_projects; return 0; }
+    _list_projects | _fzf --prompt="$prompt"
+}
+
+cmd_new() {
+    printf "project name: "; read -r project
+    [[ -z "$project" ]] && return 1
+    [[ "$project" =~ [^a-zA-Z0-9_-] ]] && { echo "project name: only letters, digits, hyphens, underscores"; return 1; }
+    [[ -f "$WORKSPACE_DIR/$project.conf" ]] && { echo "project '$project' already exists. use: zmx-workspace edit $project"; return 1; }
+
+    local dir
+    printf "directory (empty for fzf picker) [%s]: " "$PWD"; read -r dir
+    if [[ -z "$dir" ]]; then
+        local sess_conf="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-sessionizer/zmx-sessionizer.conf"
+        local search_paths=(~/Development)
+        if [[ -f "$sess_conf" ]]; then
+            source "$sess_conf"
+            search_paths=("${TS_SEARCH_PATHS[@]}")
+            [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]] && search_paths+=("${TS_EXTRA_SEARCH_PATHS[@]}")
+        fi
+        dir=$(
+            for p in "${search_paths[@]}"; do
+                if [[ "$p" =~ ^([^:]+):([0-9]+)$ ]]; then
+                    fd --type d --max-depth "${BASH_REMATCH[2]}" . "${BASH_REMATCH[1]}" 2>/dev/null
+                else
+                    fd --type d --max-depth "${TS_MAX_DEPTH:-1}" . "$p" 2>/dev/null
+                fi
+            done | _fzf --prompt="project dir> "
+        )
+        [[ -z "$dir" ]] && { echo "no directory selected"; return 1; }
+    else
+        dir="${dir/#\~/$HOME}"
+        [[ ! -d "$dir" ]] && { echo "directory '$dir' does not exist"; return 1; }
+    fi
+
+    local sessions=()
+    echo "sessions -- format: name:command  (bare shell: name:)  empty line to finish"
+    echo "examples:  nvim:nvim .   server:npm run dev   shell:"
+    while true; do
+        printf "  session> "; read -r entry
+        [[ -z "$entry" ]] && break
+        if [[ "$entry" != *:* ]]; then
+            echo "  missing colon -- use name:command or name: for bare shell"
+            continue
+        fi
+        local sess_name="${entry%%:*}"
+        if [[ -z "$sess_name" ]]; then
+            echo "  session name cannot be empty"
+            continue
+        fi
+        if [[ "$sess_name" =~ [^a-zA-Z0-9_-] ]]; then
+            echo "  session name '$sess_name': only letters, digits, hyphens, underscores"
+            continue
+        fi
+        sessions+=("$entry")
+    done
+
+    local conf="$WORKSPACE_DIR/$project.conf"
+    {
+        printf "ZMX_DIR=%q\n" "$dir"
+        echo "ZMX_SESSIONS=("
+        for s in "${sessions[@]}"; do printf '    %q\n' "$s"; done
+        echo ")"
+    } > "$conf"
+
+    echo "created: $conf"
+    printf "open sessions now? [Y/n]: "; read -r yn
+    [[ "${yn:-Y}" =~ ^[Yy]$ ]] && cmd_open "$project"
+}
+
+cmd_edit() {
+    local project="$1"
+    [[ -z "$project" ]] && project=$(_pick_project "edit project> ") || true
+    [[ -z "$project" ]] && return 0
+    local conf="$WORKSPACE_DIR/$project.conf"
+    [[ ! -f "$conf" ]] && { echo "project '$project' not found"; return 1; }
+    "${EDITOR:-nvim}" "$conf"
+}
+
+cmd_open() {
+    local project="$1"
+    [[ -z "$project" ]] && project=$(_pick_project "open project> ") || true
+    [[ -z "$project" ]] && return 0
+
+    _load_project "$project" || return 1
+
+    local active_sessions
+    active_sessions=$(_zmx_sessions)
+
+    for entry in "${ZMX_SESSIONS[@]}"; do
+        local suffix="${entry%%:*}"
+        local cmd="${entry#*:}"
+        local session="${project}-${suffix}"
+
+        if printf '%s\n' "$active_sessions" | grep -qFx "$session"; then
+            echo "  [exists]  $session"
+        else
+            if [[ -n "$cmd" ]]; then
+                ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
+                    zmx run "$session" -d "${SHELL:-zsh}" -c '
+                        cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD"
+                        exec "$SHELL"
+                    '
+            else
+                ZMX_START_DIR="$ZMX_DIR" \
+                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && exec "$SHELL"'
+            fi
+            echo "  [created] $session"
+        fi
+    done
+
+    echo ""
+    echo "attach: zmx-workspace attach $project"
+}
+
+cmd_attach() {
+    local project="$1"
+    [[ -z "$project" ]] && project=$(_pick_project "project> ") || true
+    [[ -z "$project" ]] && return 0
+
+    local active_sessions
+    active_sessions=$(_zmx_sessions)
+
+    local project_sessions
+    project_sessions=$(while IFS= read -r s; do
+        [[ "${s#"${project}-"}" != "$s" ]] && echo "$s"
+    done <<< "$active_sessions")
+
+    if [[ -z "$project_sessions" ]]; then
+        echo "no active sessions for '$project'. run: zmx-workspace open $project"
+        return 1
+    fi
+
+    local session
+    session=$(printf '%s\n' "$project_sessions" | _fzf --prompt="$project> ")
+    [[ -z "$session" ]] && return 0
+
+    exec zmx attach "$session"
+}
+
+cmd_list() {
+    if ! _list_projects | grep -q .; then
+        echo "no projects. run: zmx-workspace new"
+        return 0
+    fi
+    local active_sessions
+    active_sessions=$(_zmx_sessions)
+
+    _list_projects | while read -r project; do
+        _load_project "$project" 2>/dev/null || continue
+        local active=0 total=0
+        for entry in "${ZMX_SESSIONS[@]}"; do
+            local suffix="${entry%%:*}"
+            total=$((total+1))
+            printf '%s\n' "$active_sessions" | grep -qFx "${project}-${suffix}" && active=$((active+1))
+        done
+        printf "  %-20s  %d/%d sessions  %s\n" "$project" "$active" "$total" "$ZMX_DIR"
+    done
+}
+
+cmd_kill() {
+    local project="$1"
+    [[ -z "$project" ]] && project=$(_pick_project "kill project> ") || true
+    [[ -z "$project" ]] && return 0
+
+    _load_project "$project" || return 1
+
+    for entry in "${ZMX_SESSIONS[@]}"; do
+        local suffix="${entry%%:*}"
+        local session="${project}-${suffix}"
+        zmx kill "$session" 2>/dev/null && echo "  [killed] $session"
+    done
+}
+
+cmd_status() {
+    local sessions
+    sessions=$(_zmx_sessions)
+    if [[ -z "$sessions" ]]; then
+        echo "no active zmx sessions"
+        return 0
+    fi
+    echo "active zmx sessions:"
+    while IFS= read -r s; do echo "  $s"; done <<< "$sessions"
+}
+
+cmd_kill_session() {
+    local sessions
+    sessions=$(_zmx_sessions)
+    if [[ -z "$sessions" ]]; then
+        echo "no active zmx sessions" >&2
+        return 1
+    fi
+    local session
+    session=$(printf '%s\n' "$sessions" | _fzf --prompt="kill session> ")
+    [[ -z "$session" ]] && return 0
+    zmx kill "$session" && echo "[killed] $session"
+}
+
+case "${1:-help}" in
+    new|n)          cmd_new ;;
+    edit|e)         cmd_edit "$2" ;;
+    open|o)         cmd_open "$2" ;;
+    attach|a)       cmd_attach "$2" ;;
+    list|l|ls)      cmd_list ;;
+    kill|k)         cmd_kill "$2" ;;
+    kill-session|ks) cmd_kill_session ;;
+    status|s)       cmd_status ;;
+    *)
+        echo "zmx-workspace <command> [project]"
+        echo "  new              interactive project setup"
+        echo "  edit   [project] edit project config in \$EDITOR"
+        echo "  open   [project] create all sessions for project"
+        echo "  attach [project] fzf attach to a project session"
+        echo "  list             list all projects with session status"
+        echo "  kill   [project] kill all sessions for project"
+        echo "  kill-session     fzf pick and kill any session"
+        echo "  status           list all active zmx sessions"
+        ;;
+esac
