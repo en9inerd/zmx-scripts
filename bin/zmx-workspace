@@ -8,7 +8,7 @@ mkdir -p "$WORKSPACE_DIR"
 [[ -n "$ZMX_SEARCH_PATHS" ]] || ZMX_SEARCH_PATHS=(~/Development)
 
 _fzf() {
-    fzf --height=50% --border=rounded "$@"
+    fzf --height=50% --border=rounded --reverse "$@"
 }
 
 _zmx_sessions() {

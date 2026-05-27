@@ -21,7 +21,7 @@ Downloads scripts to `~/.local/bin/` and copies example config.
 
 Add to `~/.config/ghostty/config`:
 
-```ini
+```ghostty
 command = ~/.local/bin/zmx-sessionizer
 window-inherit-working-directory = true
 
