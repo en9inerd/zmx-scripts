@@ -33,49 +33,39 @@ _list_dirs() {
 _pick() {
     fzf \
         --print-query \
-        --expect=ctrl-n \
         --prompt="session> " \
         --height=80% \
         --reverse \
         --border=rounded \
-        --header="Enter: select  Ctrl-N: new session  Esc: plain shell"
+        --header="Enter: select  Esc: plain shell"
 }
 
 if [[ -n "$1" ]]; then
     selected="$1"
     rc=0
     query=""
-    key=""
 else
     output=$({ printf '[here] %s\n' "$PWD"; _list_sessions; _list_dirs; } | _pick)
     rc=$?
     query=$(printf '%s\n' "$output" | sed -n '1p')
-    key=$(printf '%s\n' "$output" | sed -n '2p')
-    selected=$(printf '%s\n' "$output" | sed -n '3p')
+    selected=$(printf '%s\n' "$output" | sed -n '2p')
 fi
 
-session_name=""
 start_dir=""
 
-if [[ "$key" == "ctrl-n" ]]; then
-    [[ -z "$query" ]] && exec "${SHELL:-zsh}"
-    session_name="$query"
-elif [[ "$selected" =~ ^\[ZMX\]\ ([^[:space:]]+) ]]; then
+if [[ "$selected" =~ ^\[ZMX\]\ ([^[:space:]]+) ]]; then
     exec zmx attach "${BASH_REMATCH[1]}"
 elif [[ "$selected" =~ ^\[here\]\ (.+)$ ]]; then
     start_dir="${BASH_REMATCH[1]}"
-    session_name=$(basename "$start_dir" | tr '. ' '__')
 elif [[ $rc -eq 0 && -n "$selected" ]]; then
     start_dir="$selected"
-    session_name=$(basename "$selected" | tr '. ' '__')
-elif [[ $rc -eq 0 && -n "$query" ]]; then
-    session_name="$query"
+elif [[ $rc -ne 130 && -n "$query" ]]; then
+    exec zmx attach "$query" "${SHELL:-zsh}" -c 'exec "$SHELL"'
 else
     exec "${SHELL:-zsh}"
 fi
 
 if [[ -n "$start_dir" ]]; then
-    ZMX_START_DIR="$start_dir" exec zmx attach "$session_name" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && exec "$SHELL"'
-else
-    exec zmx attach "$session_name" "${SHELL:-zsh}" -c 'exec "$SHELL"'
+    session_name=$(basename "$start_dir" | tr -c '[:alnum:]_-\n' '_' | tr -s '_')
+    ZMX_START_DIR="$start_dir" exec zmx attach "$session_name" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR"; exec "$SHELL"'
 fi

@@ -23,6 +23,7 @@ Add to `~/.config/ghostty/config`:
 
 ```ini
 command = ~/.local/bin/zmx-sessionizer
+window-inherit-working-directory = true
 
 keybind = ctrl+b>w=text:zmx-workspace attach\n
 keybind = ctrl+b>x=text:zmx kill $ZMX_SESSION\n
@@ -50,9 +51,9 @@ precmd_functions+=(_zmx_title)
 Edit `~/.config/zmx-sessionizer/zmx-sessionizer.conf`:
 
 ```bash
-TS_SEARCH_PATHS=(~/Development)
-# TS_EXTRA_SEARCH_PATHS=(~/Work:3)
-# TS_MAX_DEPTH=2
+# ZMX_SEARCH_PATHS=(~/Development)  # default
+# ZMX_SEARCH_PATHS=(~/Development ~/Work:2)
+# ZMX_MAX_DEPTH=1
 ```
 
 ## Usage
@@ -64,18 +65,19 @@ zws new              # create project (name + dir + sessions)
 zws open [project]   # start all sessions for project
 zws attach [project] # fzf pick and attach (also ctrl+b w)
 zws list             # all projects with session counts
-zws kill [project]   # kill all project sessions
+zws kill [project]   # kill all sessions for project
 zws kill-session     # fzf pick and kill any single session
+zws delete [project] # kill all sessions and remove project config
 zws status           # all active zmx sessions
 ```
 
-Project config format (`~/.config/zmx-workspace/<name>.conf`):
+Project config format (`~/.config/zmx-sessionizer/workspaces/<name>.conf`):
 
 ```bash
 ZMX_DIR=/path/to/project
 ZMX_SESSIONS=(
-    "nvim:nvim ."
-    "server:npm run dev"
+    "editor:nvim ."
+    "server:npm start"
     "shell:"
 )
 ```
@@ -84,8 +86,9 @@ ZMX_SESSIONS=(
 
 | Key            | Action                        |
 |----------------|-------------------------------|
-| ctrl+b f       | new tab, session picker       |
+| Cmd+T          | new tab, session picker       |
 | ctrl+b w       | project session picker        |
 | ctrl+b x       | kill current session          |
 | ctrl+b X       | fzf pick and kill any session |
+| ctrl+\         | detach from session           |
 

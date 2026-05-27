@@ -1,88 +1,194 @@
 # Dev Workflow Guide
 
-Ghostty handles tabs and splits. zmx handles session persistence.
+Ghostty handles tabs and splits. zmx handles session persistence. zmx-scripts wire them together.
 
-zmx session = one persistent shell. ghostty tab = viewport into a session. ghostty split = extra shell in the same tab, not persisted.
+zmx session = one persistent shell process. ghostty tab = viewport into a session. ghostty split = extra shell in the same tab, not persisted.
 
-## Concepts
+---
 
-| tmux                  | zmx equivalent              |
-|-----------------------|-----------------------------|
-| session (with windows)| zmx-workspace project       |
-| window                | zmx session (e.g. pac-nvim) |
-| pane                  | ghostty split (not persisted)|
+## Setup (one-time per machine)
 
-## Daily Use
+1. Install deps: [zmx](https://github.com/neurosnap/zmx), fzf, fd, ghostty
+2. Run installer:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/en9inerd/zmx-scripts/master/install.sh | bash
+   ```
+3. Add to `~/.config/ghostty/config`:
+   ```ini
+   command = ~/.local/bin/zmx-sessionizer
+   window-inherit-working-directory = true
+   keybind = ctrl+b>w=text:zmx-workspace attach\n
+   keybind = ctrl+b>x=text:zmx kill $ZMX_SESSION\n
+   keybind = ctrl+b>shift+x=text:zws kill-session\n
+   ```
+4. Add to `~/.zshrc`:
+   ```zsh
+   alias zws='zmx-workspace'
+   alias zs='zmx-sessionizer'
+   source <(zmx completions zsh)
+   _zmx_title() { [[ -n "$ZMX_SESSION" ]] && printf '\e]0;%s\a' "$ZMX_SESSION"; }
+   precmd_functions+=(_zmx_title)
+   ```
+5. Edit `~/.config/zmx-sessionizer/zmx-sessionizer.conf` to set search paths:
+   ```bash
+   ZMX_SEARCH_PATHS=(~/Development)
+   ```
 
-New tab (Cmd+T or ctrl+b f) opens fzf picker:
+---
 
-- `[here] /path` - create session in current directory
-- `[ZMX] name  pid:N  clients:N  /dir` - attach existing session
-- `/path/to/dir` - create session there
-- type name + Enter (no match) - create named session
-- Ctrl-N + typed name - create named session without a directory
-- Esc - plain shell, no session
+## Bootstrap
 
-Splits (Cmd+D / Cmd+Shift+D) inherit the working directory of the current pane. Use for quick parallel work within the same context.
+Ghostty runs the session picker on every new tab. To get a plain shell before any sessions exist:
 
-Detach with ctrl+\ to leave a session running in the background.
+```
+open ghostty -> session picker appears -> Esc -> plain shell
+```
 
-## Project Setup
+Run `zws` commands from this shell.
 
-One-time per project:
+---
+
+## Project Setup (one-time per project)
+
+From any shell (Esc at picker, or another terminal):
 
 ```bash
 zws new
 ```
 
 ```
-project name: pac
-directory (empty for fzf picker) [/current/dir]: /Users/enginerd/Development/pac
+project name: myapp
+directory (empty for fzf picker) [/current/dir]: /path/to/myapp
 sessions -- format: name:command  (bare shell: name:)  empty line to finish
-  session> nvim:nvim .
+  e.g.:
+    editor:nvim .
+    server:npm start
+    shell:
+  session> editor:nvim .
   session> shell:
   session>
 ```
 
-Session format: `name:command`. Bare shell: `name:` with no command.
-
-Config saved to `~/.config/zmx-workspace/pac.conf`. Edit with `zws edit pac`.
-
-## Project Workflow
+Then create sessions and open tabs:
 
 ```bash
-zws open pac         # create all sessions
-zws attach pac       # fzf pick and attach a session (also ctrl+b w)
-zws list             # all projects with active/total session counts
-zws status           # all active zmx sessions
-zws kill pac         # kill all sessions for project
-zws kill-session     # fzf pick and kill any single session
+zws open myapp
+# open tabs in ghostty and attach each session:
+zws attach myapp   # or ctrl+b w
 ```
 
-Open one tab per session, attach a different session in each.
+Config saved to `~/.config/zmx-sessionizer/workspaces/myapp.conf`. Edit with `zws edit myapp`.
+
+---
+
+## Session Picker (every new tab)
+
+`Cmd+T` opens a new tab and runs the session picker automatically.
+
+| What you do | Result |
+|---|---|
+| Pick `[ZMX] name  pid:N  clients:N  /dir` | Attach existing session |
+| Pick `[here] /path` | Create session in current directory, named by dirname |
+| Pick `/path/to/dir` from list | Create session in that directory, named by dirname |
+| Type name + `Enter` (no match in list) | Create named floating session (no dir) |
+| `Esc` | Plain shell, no session |
+
+---
+
+## Concepts
+
+| tmux                  | zmx equivalent                  |
+|-----------------------|---------------------------------|
+| session (with windows)| zmx-workspace project           |
+| window                | zmx session (e.g. myapp-editor) |
+| pane                  | ghostty split (not persisted)   |
+
+---
+
+## Working
+
+**Splits** (not persisted, inherit current dir):
+```
+Cmd+D          horizontal split
+Cmd+Shift+D    vertical split
+```
+
+**Tab title** shows the current session name automatically.
+
+---
+
+## Keybinds
+
+| Key | Action |
+|---|---|
+| `Cmd+T` | New tab, session picker |
+| `ctrl+b w` | Project session picker (fzf) |
+| `ctrl+b x` | Kill current session |
+| `ctrl+b X` | fzf pick and kill any session |
+| `ctrl+\` | Detach from session (leaves it running) |
+
+---
+
+## Project Management
+
+```bash
+zws new              # create project config (interactive)
+zws open [project]   # create all sessions for project
+zws attach [project] # fzf pick and attach a project session
+zws list             # all projects with active/total session counts
+zws status           # all active zmx sessions
+zws edit [project]   # edit project config in $EDITOR
+zws kill [project]   # kill all sessions for project
+zws kill-session     # fzf pick and kill any single session
+zws delete [project] # kill all sessions and remove project config
+```
+
+---
 
 ## After Reboot
 
-zmx sessions don't survive a full reboot. Recreate:
+zmx sessions do not survive a full reboot.
 
+**Managed project** - one command to restore:
 ```bash
-zws open pac
+zws open myapp
+# open tabs and attach
 ```
 
-Then open tabs and attach each session.
+**Ad-hoc sessions** (created directly via picker, no `zws` config) - no automatic restore. Recreate manually by picking dirs in the session picker, or convert to a managed project with `zws new`.
+
+---
 
 ## Typical Day
 
+**Sessions alive (no reboot):**
+```
+open tab -> pick session from [ZMX] list -> attach
+```
+
+**After reboot (managed project):**
 ```bash
-# morning
-zws open pac
+# from any shell (Esc at picker or another terminal)
+zws open myapp
 
-# open tabs and attach
-# tab 1: zws attach pac -> pick pac-nvim
-# tab 2: zws attach pac -> pick pac-shell
+# open tabs in ghostty
+# ctrl+b w -> pick myapp-editor
+# ctrl+b w -> pick myapp-shell
+```
 
-# new tab opens session picker automatically
+**After reboot (multiple projects):**
+```bash
+zws open myapp
+zws open myapp2
+# open tabs and attach each
+```
 
-# end of day: sessions stay alive, no need to kill
-# after reboot: zws open pac again
+**Quick one-off dir** (no config needed):
+```
+open tab -> pick dir from list -> session created
+```
+
+**Scratch session:**
+```
+open tab -> type name -> Enter (no match) -> floating session
 ```
