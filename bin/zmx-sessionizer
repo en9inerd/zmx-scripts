@@ -67,5 +67,6 @@ fi
 
 if [[ -n "$start_dir" ]]; then
     session_name=$(basename "$start_dir" | tr -c '[:alnum:]_-\n' '_' | tr -s '_')
+    cd "$start_dir" || return 1
     ZMX_START_DIR="$start_dir" exec zmx attach "$session_name" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR"; exec "$SHELL"'
 fi

@@ -135,6 +135,8 @@ cmd_open() {
         return 0
     fi
 
+    cd "$ZMX_DIR" || return 1
+
     for entry in "${ZMX_SESSIONS[@]}"; do
         local suffix="${entry%%:*}"
         local cmd="${entry#*:}"
@@ -146,8 +148,7 @@ cmd_open() {
             if [[ -n "$cmd" ]]; then
                 ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
                     zmx run "$session" -d "${SHELL:-zsh}" -c '
-                        cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD"
-                        exec "$SHELL"
+                        cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD" && exec "$SHELL"
                     '
             else
                 ZMX_START_DIR="$ZMX_DIR" \
