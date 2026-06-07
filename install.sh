@@ -22,4 +22,4 @@ else
 fi
 
 echo ""
-echo "See README.md for ghostty and zshrc setup."
+echo "See https://github.com/en9inerd/zmx-scripts/blob/master/README.md for ghostty and zshrc setup."
