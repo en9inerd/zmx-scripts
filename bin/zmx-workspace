@@ -147,14 +147,10 @@ cmd_open() {
         else
             if [[ -n "$cmd" ]]; then
                 ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
-                    zmx run "$session" -d "${SHELL:-zsh}" -c '
-                        cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD" && exec "$SHELL"
-                    '
+                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD" && exec "$SHELL"'
             else
                 ZMX_START_DIR="$ZMX_DIR" \
-                    zmx run "$session" -d "${SHELL:-zsh}" -c '
-                        cd "$ZMX_START_DIR" && exec "$SHELL"
-                    '
+                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && exec "$SHELL"'
             fi && echo "  [created] $session" || echo "  [failed]  $session"
         fi
     done
