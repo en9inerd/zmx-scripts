@@ -13,7 +13,7 @@ _fzf() {
 
 _zmx_sessions() {
     zmx list 2>/dev/null | while IFS=$'\t' read -r name _pid _clients _created _dir _rest; do
-        [[ "$_rest" == *"ended="* ]] && continue
+        [[ "$_rest" == *"err="* ]] && continue
         name=${name#"${name%%[a-zA-Z_]*}"}
         echo "${name#name=}"
     done
@@ -145,13 +145,18 @@ cmd_open() {
         if printf '%s\n' "$active_sessions" | grep -qFx "$session"; then
             echo "  [exists]  $session"
         else
+            local ok=0
             if [[ -n "$cmd" ]]; then
                 ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
-                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD" && exec "$SHELL"'
+                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && clear && eval "$ZMX_SESSION_CMD"' && ok=1
             else
                 ZMX_START_DIR="$ZMX_DIR" \
-                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && exec "$SHELL"'
-            fi && echo "  [created] $session" || echo "  [failed]  $session"
+                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && clear' \
+                    && zmx wait "$session" \
+                    && zmx send "$session" "$(printf 'clear\r')" \
+                    && ok=1
+            fi
+            [[ $ok -eq 1 ]] && echo "  [created] $session" || echo "  [failed]  $session"
         fi
     done
 
@@ -164,22 +169,55 @@ cmd_attach() {
     [[ -z "$project" ]] && project=$(_pick_project "project> ") || true
     [[ -z "$project" ]] && return 0
 
-    local active_sessions
-    active_sessions=$(_zmx_sessions)
+    _load_project "$project" || return 1
 
-    local project_sessions
-    project_sessions=$(printf '%s\n' "$active_sessions" | grep "^${project}-") || true
-
-    if [[ -z "$project_sessions" ]]; then
-        echo "no active sessions for '$project'. run: zmx-workspace open $project"
+    if [[ ${#ZMX_SESSIONS[@]} -eq 0 ]]; then
+        echo "no sessions configured for '$project'. edit with: zmx-workspace edit $project"
         return 1
     fi
 
-    local session
-    session=$(printf '%s\n' "$project_sessions" | _fzf --prompt="$project> ")
-    [[ -z "$session" ]] && return 0
+    local active_sessions
+    active_sessions=$(_zmx_sessions)
 
-    exec zmx attach "$session"
+    local display_list=()
+    for entry in "${ZMX_SESSIONS[@]}"; do
+        local suffix="${entry%%:*}"
+        local session="${project}-${suffix}"
+        if printf '%s\n' "$active_sessions" | grep -qFx "$session"; then
+            display_list+=("$session (active)")
+        else
+            display_list+=("$session")
+        fi
+    done
+
+    local selected
+    if [[ ${#display_list[@]} -eq 1 ]]; then
+        selected="${display_list[0]}"
+    else
+        selected=$(printf '%s\n' "${display_list[@]}" | _fzf --prompt="$project> ")
+    fi
+    [[ -z "$selected" ]] && return 0
+
+    local session="${selected% (active)}"
+
+    if printf '%s\n' "$active_sessions" | grep -qFx "$session"; then
+        exec zmx attach "$session"
+    fi
+
+    # first attach: create session with proper PTY via zmx attach
+    local suffix="${session#${project}-}"
+    local cmd=""
+    for entry in "${ZMX_SESSIONS[@]}"; do
+        [[ "${entry%%:*}" == "$suffix" ]] && { cmd="${entry#*:}"; break; }
+    done
+
+    if [[ -n "$cmd" ]]; then
+        ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
+            exec zmx attach "$session" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD" && exec "$SHELL"'
+    else
+        ZMX_START_DIR="$ZMX_DIR" \
+            exec zmx attach "$session" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && exec "$SHELL"'
+    fi
 }
 
 cmd_list() {
@@ -214,17 +252,6 @@ cmd_kill() {
         local session="${project}-${suffix}"
         zmx kill "$session" 2>/dev/null && echo "  [killed] $session"
     done
-}
-
-cmd_status() {
-    local sessions
-    sessions=$(_zmx_sessions)
-    if [[ -z "$sessions" ]]; then
-        echo "no active zmx sessions"
-        return 0
-    fi
-    echo "active zmx sessions:"
-    while IFS= read -r s; do echo "  $s"; done <<< "$sessions"
 }
 
 cmd_delete() {
@@ -270,7 +297,6 @@ case "${1:-help}" in
     kill|k)          cmd_kill "$2" ;;
     kill-session|ks) cmd_kill_session ;;
     delete|d)        cmd_delete "$2" ;;
-    status|s)        cmd_status ;;
     *)
         echo "zmx-workspace <command> [project]"
         echo "  new              interactive project setup"
@@ -281,6 +307,5 @@ case "${1:-help}" in
         echo "  kill   [project] kill all sessions for project"
         echo "  kill-session     fzf pick and kill any session"
         echo "  delete [project] kill all sessions and remove project config"
-        echo "  status           list all active zmx sessions"
         ;;
 esac
