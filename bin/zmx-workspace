@@ -148,7 +148,7 @@ cmd_open() {
             local ok=0
             if [[ -n "$cmd" ]]; then
                 ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
-                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && clear && eval "$ZMX_SESSION_CMD"' && ok=1
+                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && clear && eval "$ZMX_SESSION_CMD"; exec "$SHELL"' && ok=1
             else
                 ZMX_START_DIR="$ZMX_DIR" \
                     zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && clear' \

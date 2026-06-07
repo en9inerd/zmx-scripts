@@ -134,9 +134,8 @@ Cmd+Shift+D    vertical split
 ```bash
 zws new              # create project config (interactive)
 zws open [project]   # create all sessions for project
-zws attach [project] # fzf pick and attach a project session
+zws attach [project] # fzf pick — shows all configured sessions, lazy-creates if missing
 zws list             # all projects with active/total session counts
-zws status           # all active zmx sessions
 zws edit [project]   # edit project config in $EDITOR
 zws kill [project]   # kill all sessions for project
 zws kill-session     # fzf pick and kill any single session
