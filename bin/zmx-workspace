@@ -201,6 +201,7 @@ cmd_attach() {
     local session="${selected% (active)}"
 
     if printf '%s\n' "$active_sessions" | grep -qFx "$session"; then
+        printf '\e]0;%s\a' "$session"
         exec zmx attach "$session"
     fi
 
@@ -211,6 +212,7 @@ cmd_attach() {
         [[ "${entry%%:*}" == "$suffix" ]] && { cmd="${entry#*:}"; break; }
     done
 
+    printf '\e]0;%s\a' "$session"
     if [[ -n "$cmd" ]]; then
         ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
             exec zmx attach "$session" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD" && exec "$SHELL"'

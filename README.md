@@ -1,6 +1,6 @@
 # zmx-scripts
 
-fzf-driven session picker and project workspace manager for [zmx](https://github.com/neurosnap/zmx), integrated as ghostty's tab launcher.
+fzf-driven session picker and project workspace manager for [zmx](https://github.com/neurosnap/zmx), integrated with ghostty.
 
 ## Requirements
 
@@ -22,9 +22,10 @@ Downloads scripts to `~/.local/bin/` and copies example config.
 Add to `~/.config/ghostty/config`:
 
 ```ghostty
-command = ~/.local/bin/zmx-sessionizer
+shell-integration-features=no-cursor,no-sudo,ssh-terminfo,ssh-env
 window-inherit-working-directory = true
 
+keybind = ctrl+b>f=text:zmx-sessionizer\n
 keybind = ctrl+b>w=text:zmx-workspace attach\n
 keybind = ctrl+b>x=text:zmx kill $ZMX_SESSION\n
 keybind = ctrl+b>shift+x=text:zws kill-session\n
@@ -40,11 +41,12 @@ alias zs='zmx-sessionizer'
 
 source <(zmx completions zsh)
 
+[[ -n "$ZMX_SESSION" ]] && GHOSTTY_SHELL_FEATURES=${(j:,:)${(s:,:)GHOSTTY_SHELL_FEATURES:#title}}
 _zmx_title() { [[ -n "$ZMX_SESSION" ]] && printf '\e]0;%s\a' "$ZMX_SESSION"; }
 precmd_functions+=(_zmx_title)
 ```
 
-`precmd_functions+=` must be last in `.zshrc` to win the tab title race over ghostty/fzf/fnm hooks.
+Inside zmx sessions, strips `title` from `GHOSTTY_SHELL_FEATURES` before ghostty's deferred init runs — preventing ghostty from installing title hooks. `_zmx_title` then owns the tab title exclusively. Plain shells are unaffected. `precmd_functions+=` must be last in `.zshrc`.
 
 ## sessionizer config
 
@@ -85,7 +87,8 @@ ZMX_SESSIONS=(
 
 | Key            | Action                        |
 |----------------|-------------------------------|
-| Cmd+T          | new tab, session picker       |
+| Cmd+T          | new tab (plain shell)         |
+| ctrl+b f       | session picker (fzf)          |
 | ctrl+b w       | project session picker        |
 | ctrl+b x       | kill current session          |
 | ctrl+b X       | fzf pick and kill any session |

@@ -15,8 +15,9 @@ zmx session = one persistent shell process. ghostty tab = viewport into a sessio
    ```
 3. Add to `~/.config/ghostty/config`:
    ```ini
-   command = ~/.local/bin/zmx-sessionizer
+   shell-integration-features=no-cursor,no-sudo,ssh-terminfo,ssh-env
    window-inherit-working-directory = true
+   keybind = ctrl+b>f=text:zmx-sessionizer\n
    keybind = ctrl+b>w=text:zmx-workspace attach\n
    keybind = ctrl+b>x=text:zmx kill $ZMX_SESSION\n
    keybind = ctrl+b>shift+x=text:zws kill-session\n
@@ -38,13 +39,7 @@ zmx session = one persistent shell process. ghostty tab = viewport into a sessio
 
 ## Bootstrap
 
-Ghostty runs the session picker on every new tab. To get a plain shell before any sessions exist:
-
-```
-open ghostty -> session picker appears -> Esc -> plain shell
-```
-
-Run `zws` commands from this shell.
+New tabs open a plain shell. Run `zws` commands directly.
 
 ---
 
@@ -69,11 +64,10 @@ sessions -- format: name:command  (bare shell: name:)  empty line to finish
   session>
 ```
 
-Then create sessions and open tabs:
+Then create sessions and attach:
 
 ```bash
 zws open myapp
-# open tabs in ghostty and attach each session:
 zws attach myapp   # or ctrl+b w
 ```
 
@@ -81,9 +75,9 @@ Config saved to `~/.config/zmx-sessionizer/workspaces/myapp.conf`. Edit with `zw
 
 ---
 
-## Session Picker (every new tab)
+## Session Picker
 
-`Cmd+T` opens a new tab and runs the session picker automatically.
+`ctrl+b f` opens the session picker in the current tab.
 
 | What you do | Result |
 |---|---|
@@ -121,7 +115,8 @@ Cmd+Shift+D    vertical split
 
 | Key | Action |
 |---|---|
-| `Cmd+T` | New tab, session picker |
+| `Cmd+T` | New tab (plain shell) |
+| `ctrl+b f` | Session picker (fzf) |
 | `ctrl+b w` | Project session picker (fzf) |
 | `ctrl+b x` | Kill current session |
 | `ctrl+b X` | fzf pick and kill any session |
@@ -151,7 +146,7 @@ zmx sessions do not survive a full reboot.
 **Managed project** - one command to restore:
 ```bash
 zws open myapp
-# open tabs and attach
+zws attach myapp   # or ctrl+b w
 ```
 
 **Ad-hoc sessions** (created directly via picker, no `zws` config) - no automatic restore. Recreate manually by picking dirs in the session picker, or convert to a managed project with `zws new`.
@@ -162,15 +157,12 @@ zws open myapp
 
 **Sessions alive (no reboot):**
 ```
-open tab -> pick session from [ZMX] list -> attach
+ctrl+b f -> pick session from [ZMX] list -> attach
 ```
 
 **After reboot (managed project):**
 ```bash
-# from any shell (Esc at picker or another terminal)
 zws open myapp
-
-# open tabs in ghostty
 # ctrl+b w -> pick myapp-editor
 # ctrl+b w -> pick myapp-shell
 ```
@@ -179,15 +171,15 @@ zws open myapp
 ```bash
 zws open myapp
 zws open myapp2
-# open tabs and attach each
+# ctrl+b w to attach each
 ```
 
 **Quick one-off dir** (no config needed):
 ```
-open tab -> pick dir from list -> session created
+ctrl+b f -> pick dir from list -> session created
 ```
 
 **Scratch session:**
 ```
-open tab -> type name -> Enter (no match) -> floating session
+ctrl+b f -> type name -> Enter (no match) -> floating session
 ```

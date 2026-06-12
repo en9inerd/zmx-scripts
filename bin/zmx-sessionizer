@@ -54,12 +54,14 @@ fi
 start_dir=""
 
 if [[ "$selected" =~ ^\[ZMX\]\ ([^[:space:]]+) ]]; then
+    printf '\e]0;%s\a' "${BASH_REMATCH[1]}"
     exec zmx attach "${BASH_REMATCH[1]}"
 elif [[ "$selected" =~ ^\[here\]\ (.+)$ ]]; then
     start_dir="${BASH_REMATCH[1]}"
 elif [[ $rc -eq 0 && -n "$selected" ]]; then
     start_dir="$selected"
 elif [[ $rc -ne 130 && -n "$query" ]]; then
+    printf '\e]0;%s\a' "$query"
     exec zmx attach "$query" "${SHELL:-zsh}" -c 'exec "$SHELL"'
 else
     exec "${SHELL:-zsh}"
@@ -68,5 +70,6 @@ fi
 if [[ -n "$start_dir" ]]; then
     session_name=$(basename "$start_dir" | tr -c '[:alnum:]_-\n' '_' | tr -s '_')
     cd "$start_dir" || return 1
+    printf '\e]0;%s\a' "$session_name"
     ZMX_START_DIR="$start_dir" exec zmx attach "$session_name" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR"; exec "$SHELL"'
 fi
