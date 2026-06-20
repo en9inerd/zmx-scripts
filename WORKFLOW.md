@@ -27,6 +27,7 @@ zmx session = one persistent shell process. ghostty tab = viewport into a sessio
    alias zws='zmx-workspace'
    alias zs='zmx-sessionizer'
    source <(zmx completions zsh)
+   [[ -n "$ZMX_SESSION" ]] && GHOSTTY_SHELL_FEATURES=${(j:,:)${(s:,:)GHOSTTY_SHELL_FEATURES:#title}}
    _zmx_title() { [[ -n "$ZMX_SESSION" ]] && printf '\e]0;%s\a' "$ZMX_SESSION"; }
    precmd_functions+=(_zmx_title)
    ```
@@ -117,7 +118,7 @@ Cmd+Shift+D    vertical split
 |---|---|
 | `Cmd+T` | New tab (plain shell) |
 | `ctrl+b f` | Session picker (fzf) |
-| `ctrl+b w` | Project session picker (fzf) |
+| `ctrl+b w` | Session picker — all projects (fzf) |
 | `ctrl+b x` | Kill current session |
 | `ctrl+b X` | fzf pick and kill any session |
 | `ctrl+\` | Detach from session (leaves it running) |
@@ -129,7 +130,7 @@ Cmd+Shift+D    vertical split
 ```bash
 zws new              # create project config (interactive)
 zws open [project]   # create all sessions for project
-zws attach [project] # fzf pick — shows all configured sessions, lazy-creates if missing
+zws attach [project] # fzf pick — flat list of all sessions across all projects, lazy-creates if missing
 zws list             # all projects with active/total session counts
 zws edit [project]   # edit project config in $EDITOR
 zws kill [project]   # kill all sessions for project

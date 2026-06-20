@@ -13,7 +13,7 @@ _fzf() {
 
 _zmx_sessions() {
     zmx list 2>/dev/null | while IFS=$'\t' read -r name _pid _clients _created _dir _rest; do
-        [[ "$_rest" == *"err="* ]] && continue
+        [[ "$_rest" == *"err="* || "$_rest" == *"ended="* ]] && continue
         name=${name#"${name%%[a-zA-Z_]*}"}
         echo "${name#name=}"
     done
@@ -147,13 +147,12 @@ cmd_open() {
         else
             local ok=0
             if [[ -n "$cmd" ]]; then
-                ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
-                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && clear && eval "$ZMX_SESSION_CMD"; exec "$SHELL"' && ok=1
+                zmx run "$session" -d "${SHELL:-zsh}" \
+                    && zmx send "$session" "$(printf "trap 'zmx kill \"\$ZMX_SESSION\"' EXIT; cd %q && clear && eval %q\r" "$ZMX_DIR" "$cmd")" \
+                    && ok=1
             else
-                ZMX_START_DIR="$ZMX_DIR" \
-                    zmx run "$session" -d "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && clear' \
-                    && zmx wait "$session" \
-                    && zmx send "$session" "$(printf 'clear\r')" \
+                zmx run "$session" -d "${SHELL:-zsh}" \
+                    && zmx send "$session" "$(printf "trap 'zmx kill \"\$ZMX_SESSION\"' EXIT; cd %q && clear\r" "$ZMX_DIR")" \
                     && ok=1
             fi
             [[ $ok -eq 1 ]] && echo "  [created] $session" || echo "  [failed]  $session"
@@ -165,60 +164,61 @@ cmd_open() {
 }
 
 cmd_attach() {
-    local project="$1"
-    [[ -z "$project" ]] && project=$(_pick_project "project> ") || true
-    [[ -z "$project" ]] && return 0
+    local filter_project="$1"
+    local active_sessions project conf entry suffix session label line shell cmd
+    local lines=()
 
-    _load_project "$project" || return 1
-
-    if [[ ${#ZMX_SESSIONS[@]} -eq 0 ]]; then
-        echo "no sessions configured for '$project'. edit with: zmx-workspace edit $project"
-        return 1
-    fi
-
-    local active_sessions
     active_sessions=$(_zmx_sessions)
 
-    local display_list=()
-    for entry in "${ZMX_SESSIONS[@]}"; do
-        local suffix="${entry%%:*}"
-        local session="${project}-${suffix}"
-        if printf '%s\n' "$active_sessions" | grep -qFx "$session"; then
-            display_list+=("$session (active)")
-        else
-            display_list+=("$session")
-        fi
-    done
+    while IFS= read -r project; do
+        [[ -n "$filter_project" && "$project" != "$filter_project" ]] && continue
+        conf="$WORKSPACE_DIR/$project.conf"
+        [[ ! -f "$conf" ]] && continue
+        while IFS= read -r entry; do
+            [[ -z "$entry" ]] && continue
+            suffix="${entry%%:*}"
+            session="${project}-${suffix}"
+            label="$session"
+            printf '%s\n' "$active_sessions" | grep -qFx "$session" \
+                && label="$session (active)"
+            lines+=("${project}"$'\t'"${label}")
+        done < <(unset ZMX_SESSIONS; source "$conf" 2>/dev/null; printf '%s\n' "${ZMX_SESSIONS[@]}")
+    done < <(_list_projects)
 
-    local selected
-    if [[ ${#display_list[@]} -eq 1 ]]; then
-        selected="${display_list[0]}"
+    [[ ${#lines[@]} -eq 0 ]] && { echo "no sessions configured" >&2; return 1; }
+
+    if [[ ${#lines[@]} -eq 1 ]]; then
+        line="${lines[0]}"
     else
-        selected=$(printf '%s\n' "${display_list[@]}" | _fzf --prompt="$project> ")
+        line=$(printf '%s\n' "${lines[@]}" | _fzf --prompt="session> " --delimiter=$'\t' --with-nth=2)
     fi
-    [[ -z "$selected" ]] && return 0
+    [[ -z "$line" ]] && return 0
 
-    local session="${selected% (active)}"
+    project="${line%%$'\t'*}"
+    session="${line#*$'\t'}"; session="${session% (active)}"
+
+    _load_project "$project" || return 1
 
     if printf '%s\n' "$active_sessions" | grep -qFx "$session"; then
         printf '\e]0;%s\a' "$session"
         exec zmx attach "$session"
     fi
 
-    # first attach: create session with proper PTY via zmx attach
-    local suffix="${session#${project}-}"
-    local cmd=""
+    suffix="${session#${project}-}"
+    cmd=""
     for entry in "${ZMX_SESSIONS[@]}"; do
         [[ "${entry%%:*}" == "$suffix" ]] && { cmd="${entry#*:}"; break; }
     done
 
     printf '\e]0;%s\a' "$session"
+    shell="${SHELL:-zsh}"
     if [[ -n "$cmd" ]]; then
-        ZMX_START_DIR="$ZMX_DIR" ZMX_SESSION_CMD="$cmd" \
-            exec zmx attach "$session" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && eval "$ZMX_SESSION_CMD" && exec "$SHELL"'
+        exec zmx attach "$session" "$shell" -c \
+            "$(printf "trap 'exec %q' INT; cd %q && clear && eval %q; exec %q" \
+                "$shell" "$ZMX_DIR" "$cmd" "$shell")"
     else
         ZMX_START_DIR="$ZMX_DIR" \
-            exec zmx attach "$session" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR" && exec "$SHELL"'
+            exec zmx attach "$session" "$shell" -c 'cd "$ZMX_START_DIR" && exec "$SHELL"'
     fi
 }
 

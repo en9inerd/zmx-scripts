@@ -65,7 +65,7 @@ Edit `~/.config/zmx-sessionizer/zmx-sessionizer.conf`:
 ```bash
 zws new              # create project (name + dir + sessions)
 zws open [project]   # start all sessions for project
-zws attach [project] # fzf pick — shows all configured sessions, lazy-creates if missing
+zws attach [project] # fzf pick — flat list of all sessions across all projects, lazy-creates if missing
 zws list             # all projects with session counts
 zws kill [project]   # kill all sessions for project
 zws kill-session     # fzf pick and kill any single session
@@ -89,7 +89,7 @@ ZMX_SESSIONS=(
 |----------------|-------------------------------|
 | Cmd+T          | new tab (plain shell)         |
 | ctrl+b f       | session picker (fzf)          |
-| ctrl+b w       | project session picker        |
+| ctrl+b w       | session picker (all projects) |
 | ctrl+b x       | kill current session          |
 | ctrl+b X       | fzf pick and kill any session |
 | ctrl+\         | detach from session           |
