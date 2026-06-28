@@ -3,6 +3,16 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-sessionizer"
 CONFIG_FILE="$CONFIG_DIR/zmx-sessionizer.conf"
 
+[[ "$1" == --help || "$1" == -h ]] && {
+    echo "usage: zmx-sessionizer [directory]"
+    echo "       zmx-sessionizer kill"
+    echo ""
+    echo "config: ~/.config/zmx-sessionizer/zmx-sessionizer.conf"
+    echo "  ZMX_SEARCH_PATHS=(~/Development)"
+    echo "  ZMX_MAX_DEPTH=1"
+    exit 0
+}
+
 [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
 [[ -n "$ZMX_SEARCH_PATHS" ]] || ZMX_SEARCH_PATHS=(~/Development)
 
@@ -37,39 +47,51 @@ _pick() {
         --height=80% \
         --reverse \
         --border=rounded \
-        --header="Enter: select  Esc: plain shell"
+        --header="Enter: select  Esc: cancel"
 }
 
+if [[ "$1" == "kill" ]]; then
+    session=$(zmx list 2>/dev/null \
+        | while IFS=$'\t' read -r name _rest; do
+            [[ "$_rest" == *"ended="* ]] && continue
+            name=${name#"${name%%[a-zA-Z_]*}"}
+            echo "${name#name=}"
+          done \
+        | fzf --prompt="kill> " --height=40% --border=rounded --reverse)
+    [[ -z "$session" ]] && exit 0
+    zmx kill "$session" && echo "[killed] $session"
+    exit 0
+fi
+
 if [[ -n "$1" ]]; then
-    selected="$1"
-    rc=0
-    query=""
+    [[ ! -d "$1" ]] && { echo "not a directory: $1" >&2; exit 1; }
+    start_dir="$1"
 else
     output=$({ printf '[here] %s\n' "$PWD"; _list_sessions; _list_dirs; } | _pick)
     rc=$?
     query=$(printf '%s\n' "$output" | sed -n '1p')
     selected=$(printf '%s\n' "$output" | sed -n '2p')
-fi
 
-start_dir=""
+    start_dir=""
 
-if [[ "$selected" =~ ^\[ZMX\]\ ([^[:space:]]+) ]]; then
-    printf '\e]0;%s\a' "${BASH_REMATCH[1]}"
-    exec zmx attach "${BASH_REMATCH[1]}"
-elif [[ "$selected" =~ ^\[here\]\ (.+)$ ]]; then
-    start_dir="${BASH_REMATCH[1]}"
-elif [[ $rc -eq 0 && -n "$selected" ]]; then
-    start_dir="$selected"
-elif [[ $rc -ne 130 && -n "$query" ]]; then
-    printf '\e]0;%s\a' "$query"
-    exec zmx attach "$query" "${SHELL:-zsh}" -c 'exec "$SHELL"'
-else
-    exec "${SHELL:-zsh}"
+    if [[ "$selected" =~ ^\[ZMX\]\ ([^[:space:]]+) ]]; then
+        printf '\e]0;%s\a' "${BASH_REMATCH[1]}"
+        exec zmx attach "${BASH_REMATCH[1]}"
+    elif [[ "$selected" =~ ^\[here\]\ (.+)$ ]]; then
+        start_dir="${BASH_REMATCH[1]}"
+    elif [[ $rc -eq 0 && -n "$selected" ]]; then
+        start_dir="$selected"
+    elif [[ $rc -ne 130 && -n "$query" ]]; then
+        printf '\e]0;%s\a' "$query"
+        exec zmx attach "$query" "${SHELL:-zsh}" -c 'exec "$SHELL"'
+    else
+        exit 0
+    fi
 fi
 
 if [[ -n "$start_dir" ]]; then
     session_name=$(basename "$start_dir" | tr -c '[:alnum:]_-\n' '_' | tr -s '_')
-    cd "$start_dir" || return 1
+    cd "$start_dir" || exit 1
     printf '\e]0;%s\a' "$session_name"
     ZMX_START_DIR="$start_dir" exec zmx attach "$session_name" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR"; exec "$SHELL"'
 fi

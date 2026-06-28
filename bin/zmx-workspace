@@ -277,18 +277,6 @@ cmd_delete() {
     rm "$conf" && echo "  [deleted] $conf"
 }
 
-cmd_kill_session() {
-    local sessions
-    sessions=$(_zmx_sessions)
-    if [[ -z "$sessions" ]]; then
-        echo "no active zmx sessions" >&2
-        return 1
-    fi
-    local session
-    session=$(printf '%s\n' "$sessions" | _fzf --prompt="kill session> ")
-    [[ -z "$session" ]] && return 0
-    zmx kill "$session" 2>/dev/null && echo "[killed] $session"
-}
 
 case "${1:-help}" in
     new|n)           cmd_new ;;
@@ -297,7 +285,6 @@ case "${1:-help}" in
     attach|a)        cmd_attach "$2" ;;
     list|l|ls)       cmd_list ;;
     kill|k)          cmd_kill "$2" ;;
-    kill-session|ks) cmd_kill_session ;;
     delete|d)        cmd_delete "$2" ;;
     *)
         echo "zmx-workspace <command> [project]"
@@ -307,7 +294,6 @@ case "${1:-help}" in
         echo "  attach [project] fzf attach to a project session"
         echo "  list             list all projects with session status"
         echo "  kill   [project] kill all sessions for project"
-        echo "  kill-session     fzf pick and kill any session"
         echo "  delete [project] kill all sessions and remove project config"
         ;;
 esac

@@ -20,7 +20,7 @@ zmx session = one persistent shell process. ghostty tab = viewport into a sessio
    keybind = ctrl+b>f=text:zmx-sessionizer\n
    keybind = ctrl+b>w=text:zmx-workspace attach\n
    keybind = ctrl+b>x=text:zmx kill $ZMX_SESSION\n
-   keybind = ctrl+b>shift+x=text:zws kill-session\n
+   keybind = ctrl+b>shift+x=text:zmx-sessionizer kill\n
    ```
 4. Add to `~/.zshrc`:
    ```zsh
@@ -86,7 +86,7 @@ Config saved to `~/.config/zmx-sessionizer/workspaces/myapp.conf`. Edit with `zw
 | Pick `[here] /path` | Create session in current directory, named by dirname |
 | Pick `/path/to/dir` from list | Create session in that directory, named by dirname |
 | Type name + `Enter` (no match in list) | Create named floating session (no dir) |
-| `Esc` | Plain shell, no session |
+| `Esc` | Cancel |
 
 ---
 
@@ -134,7 +134,6 @@ zws attach [project] # fzf pick — flat list of all sessions across all project
 zws list             # all projects with active/total session counts
 zws edit [project]   # edit project config in $EDITOR
 zws kill [project]   # kill all sessions for project
-zws kill-session     # fzf pick and kill any single session
 zws delete [project] # kill all sessions and remove project config
 ```
 

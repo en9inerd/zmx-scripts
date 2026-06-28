@@ -24,11 +24,10 @@ Add to `~/.config/ghostty/config`:
 ```ghostty
 shell-integration-features=no-cursor,no-sudo,ssh-terminfo,ssh-env
 window-inherit-working-directory = true
-
 keybind = ctrl+b>f=text:zmx-sessionizer\n
 keybind = ctrl+b>w=text:zmx-workspace attach\n
 keybind = ctrl+b>x=text:zmx kill $ZMX_SESSION\n
-keybind = ctrl+b>shift+x=text:zws kill-session\n
+keybind = ctrl+b>shift+x=text:zmx-sessionizer kill\n
 ```
 
 ## zshrc
@@ -68,7 +67,6 @@ zws open [project]   # start all sessions for project
 zws attach [project] # fzf pick — flat list of all sessions across all projects, lazy-creates if missing
 zws list             # all projects with session counts
 zws kill [project]   # kill all sessions for project
-zws kill-session     # fzf pick and kill any single session
 zws delete [project] # kill all sessions and remove project config
 ```
 
