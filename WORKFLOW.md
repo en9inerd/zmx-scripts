@@ -23,11 +23,15 @@ If you know tmux: a workspace project ≈ tmux session, a zmx session ≈ tmux w
 
 ### Install
 
-1. Install deps: [zmx](https://github.com/neurosnap/zmx), fzf, fd, ghostty
-2. Run the installer:
+1. Install deps: fzf, fd, ghostty
+2. Run the installer, then install zmx itself:
    ```bash
    curl -fsSL https://raw.githubusercontent.com/en9inerd/zmx-scripts/master/install.sh | bash
+   zmx-update
    ```
+   `zmx-update` pulls zmx straight from GitHub releases (checksum-verified) rather
+   than waiting on the Homebrew tap, and removes a Homebrew-managed `zmx` so it
+   cannot shadow `~/.local/bin/zmx`. Re-run it any time to upgrade. Needs zmx 0.8.0+.
 3. Add to `~/.config/ghostty/config` (adjust keybinds to your preference):
    ```ghostty
    keybind = ctrl+b>f=text:zmx-sessionizer\n
@@ -37,7 +41,7 @@ If you know tmux: a workspace project ≈ tmux session, a zmx session ≈ tmux w
    ```
 4. Add to `~/.zshrc`:
    ```zsh
-   source <(zmx completions zsh)
+   export PATH="$HOME/.local/bin:$PATH"
    alias zws='zmx-workspace'
    alias zs='zmx-sessionizer'
    ```

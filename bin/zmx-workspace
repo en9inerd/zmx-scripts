@@ -12,10 +12,9 @@ _fzf() {
 }
 
 _zmx_sessions() {
-    zmx list 2>/dev/null | while IFS=$'\t' read -r name _pid _clients _created _dir _rest; do
-        [[ "$_rest" == *"err="* || "$_rest" == *"ended="* ]] && continue
-        name=${name#"${name%%[a-zA-Z_]*}"}
-        echo "${name#name=}"
+    zmx list 2>/dev/null | while IFS=$'\t' read -r name pid _clients _created _dir _rest; do
+        [[ "$pid" == err=* || "$_rest" == *ended=* ]] && continue
+        echo "${name#*name=}"
     done
 }
 
@@ -212,13 +211,13 @@ cmd_attach() {
 
     printf '\e]0;%s\a' "$session"
     shell="${SHELL:-zsh}"
+    cd "$ZMX_DIR" || return 1
     if [[ -n "$cmd" ]]; then
         exec zmx attach "$session" "$shell" -c \
-            "$(printf "trap 'exec %q' INT; cd %q && clear && eval %q; exec %q" \
-                "$shell" "$ZMX_DIR" "$cmd" "$shell")"
+            "$(printf "trap 'exec %q' INT; clear && eval %q; exec %q" \
+                "$shell" "$cmd" "$shell")"
     else
-        ZMX_START_DIR="$ZMX_DIR" \
-            exec zmx attach "$session" "$shell" -c 'cd "$ZMX_START_DIR" && exec "$SHELL"'
+        exec zmx attach "$session"
     fi
 }
 

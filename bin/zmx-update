@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Install or update zmx from GitHub releases.
+set -euo pipefail
+
+REPO="neurosnap/zmx"
+BIN_DIR="$HOME/.local/bin"
+
+die() { echo "error: $*" >&2; exit 1; }
+
+case "$(uname -s)" in
+    Darwin) os="macos" ;;
+    Linux)  os="linux" ;;
+    *)      die "unsupported OS: $(uname -s)" ;;
+esac
+
+case "$(uname -m)" in
+    arm64|aarch64) arch="aarch64" ;;
+    x86_64|amd64)  arch="x86_64" ;;
+    *)             die "unsupported architecture: $(uname -m)" ;;
+esac
+
+url=$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+    "https://github.com/$REPO/releases/latest") \
+    || die "could not reach github"
+version="${url##*/tag/}"
+version="${version#v}"
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || die "could not parse version from $url"
+
+installed=""
+command -v zmx >/dev/null && installed=$(zmx version 2>/dev/null | awk 'NR==1 {print $2}')
+
+if [[ "$installed" == "$version" ]]; then
+    echo "[zmx-update] already on $version"
+    exit 0
+fi
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+asset="zmx-${version}-${os}-${arch}.tar.gz"
+base="https://github.com/$REPO/releases/download/v${version}"
+
+echo "[zmx-update] ${installed:-none} -> $version ($os-$arch)"
+curl -fsSL -o "$tmp/$asset" "$base/$asset" || die "download failed: $base/$asset"
+curl -fsSL -o "$tmp/$asset.sha256" "$base/$asset.sha256" || die "download failed: $base/$asset.sha256"
+
+expected=$(cut -d ' ' -f1 < "$tmp/$asset.sha256")
+if command -v sha256sum >/dev/null; then
+    actual=$(sha256sum "$tmp/$asset" | cut -d ' ' -f1)
+else
+    actual=$(shasum -a 256 "$tmp/$asset" | cut -d ' ' -f1)
+fi
+[[ "$expected" == "$actual" ]] || die "checksum mismatch for $asset"
+
+tar -xzf "$tmp/$asset" -C "$tmp" || die "could not extract $asset"
+[[ -f "$tmp/zmx" ]] || die "no zmx binary inside $asset"
+chmod +x "$tmp/zmx"
+
+if command -v brew >/dev/null && brew list --formula zmx >/dev/null 2>&1; then
+    echo "[zmx-update] removing the Homebrew zmx"
+    brew uninstall zmx || die "brew uninstall zmx failed"
+fi
+
+mkdir -p "$BIN_DIR"
+mv -f "$tmp/zmx" "$BIN_DIR/zmx"
+echo "[zmx-update] installed zmx $version -> $BIN_DIR/zmx"

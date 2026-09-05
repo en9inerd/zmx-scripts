@@ -4,7 +4,7 @@ fzf-driven session picker and project workspace manager for [zmx](https://github
 
 ## Requirements
 
-- [zmx](https://github.com/neurosnap/zmx)
+- [zmx](https://github.com/neurosnap/zmx) 0.8.0+ (install with `zmx-update`, below)
 - [fzf](https://github.com/junegunn/fzf)
 - [fd](https://github.com/sharkdp/fd)
 - ghostty
@@ -17,11 +17,22 @@ curl -fsSL https://raw.githubusercontent.com/en9inerd/zmx-scripts/master/install
 
 Downloads scripts to `~/.local/bin/` and copies example config to `~/.config/zmx-sessionizer/`.
 
-Add to `~/.zshrc`:
+Then install zmx itself:
+
+```bash
+zmx-update
+```
+
+Make sure `~/.local/bin` is on your `PATH`:
 
 ```zsh
-source <(zmx completions zsh)
+export PATH="$HOME/.local/bin:$PATH"
 ```
+
+`zmx-update` installs the latest zmx release from GitHub, checksum-verified, so
+you are not waiting on the Homebrew tap. It removes a Homebrew-managed `zmx`
+first, since `/opt/homebrew/bin` normally precedes `~/.local/bin` on `PATH` and
+would shadow the new binary. Re-run it any time to upgrade.
 
 ## Setup
 

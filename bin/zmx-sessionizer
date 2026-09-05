@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zmx-sessionizer"
 CONFIG_FILE="$CONFIG_DIR/zmx-sessionizer.conf"
 
@@ -18,13 +17,11 @@ CONFIG_FILE="$CONFIG_DIR/zmx-sessionizer.conf"
 
 _list_sessions() {
     zmx list 2>/dev/null | while IFS=$'\t' read -r name pid clients _created dir _rest; do
-        [[ "$_rest" == *"ended="* ]] && continue
-        name=${name#"${name%%[a-zA-Z_]*}"}
-        name=${name#name=}
-        pid=${pid#pid=}
-        clients=${clients#clients=}
-        dir=${dir#start_dir=}
-        printf "[ZMX] %-20s  pid:%-8s  clients:%-2s  %s\n" "$name" "$pid" "$clients" "$dir"
+        [[ "$pid" == err=* || "$_rest" == *ended=* ]] && continue
+        [[ "$dir" == cwd=* ]] || dir=
+        dir=${dir#cwd=}; dir=${dir#*://}; dir=${dir:+/${dir#*/}}
+        printf "[ZMX] %-20s  pid:%-8s  clients:%-2s  %b\n" \
+            "${name#*name=}" "${pid#pid=}" "${clients#clients=}" "${dir//%/\\x}"
     done
 }
 
@@ -51,12 +48,7 @@ _pick() {
 }
 
 if [[ "$1" == "kill" ]]; then
-    session=$(zmx list 2>/dev/null \
-        | while IFS=$'\t' read -r name _rest; do
-            [[ "$_rest" == *"ended="* ]] && continue
-            name=${name#"${name%%[a-zA-Z_]*}"}
-            echo "${name#name=}"
-          done \
+    session=$(zmx list --short 2>/dev/null \
         | fzf --prompt="kill> " --height=40% --border=rounded --reverse)
     [[ -z "$session" ]] && exit 0
     zmx kill "$session" && echo "[killed] $session"
@@ -83,7 +75,7 @@ else
         start_dir="$selected"
     elif [[ $rc -ne 130 && -n "$query" ]]; then
         printf '\e]0;%s\a' "$query"
-        exec zmx attach "$query" "${SHELL:-zsh}" -c 'exec "$SHELL"'
+        exec zmx attach "$query"
     else
         exit 0
     fi
@@ -93,5 +85,5 @@ if [[ -n "$start_dir" ]]; then
     session_name=$(basename "$start_dir" | tr -c '[:alnum:]_\n-' '_' | tr -s '_')
     cd "$start_dir" || exit 1
     printf '\e]0;%s\a' "$session_name"
-    ZMX_START_DIR="$start_dir" exec zmx attach "$session_name" "${SHELL:-zsh}" -c 'cd "$ZMX_START_DIR"; exec "$SHELL"'
+    exec zmx attach "$session_name"
 fi
